@@ -544,4 +544,136 @@ const channelList = [
   {name:"Roz News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3HxB_nRvvD0KireVtBymmZD-ZScTmYwQSow&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/RozNews-139/playlist.m3u", category:"news"},
   {name:"VSH News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZdvN4yiS31fNgC1fv48P-a7IXWi6MIe7yAQ&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/VSHTV-122/playlist.m3u8", category:"news"},
   {name:"Channel 5", logo:"https://pbs.twimg.com/media/EwAo8HrXMAITpUb?format=jpg&name=360x360", url:"https://vodzong.mjunoon.tv:8087/streamtest/Channel5-159-4/live/159-4M/chunks.m3u8", category:"entertainment"},
-  {name:"DW", logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Deutsche_Welle_symbol_2012.svg/1200px-Deutsche_Welle_symbol_2012.svg.pn
+  {name:"DW", logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Deutsche_Welle_symbol_2012.svg/1200px-Deutsche_Welle_symbol_2012.svg.png", url:"https://vodzong.mjunoon.tv:8087/streamtest/DW-180/playlist.m3u8", category:"international"}
+];
+
+// Initialize variables
+let currentChannelIndex = -1;
+let hls;
+const video = document.getElementById('videoPlayer');
+const loader = document.getElementById('loader');
+const channelGrid = document.getElementById('channelGrid');
+const channelName = document.getElementById('channelName');
+const controls = document.getElementById('controls');
+const playBtn = document.getElementById('playBtn');
+const muteBtn = document.getElementById('muteBtn');
+const qualityMenu = document.getElementById('qualityMenu');
+const progressBar = document.getElementById('progressBar');
+const progressHandle = document.getElementById('progressHandle');
+const progressContainer = document.getElementById('progressContainer');
+const timeDisplay = document.getElementById('timeDisplay');
+
+// Render channels
+function renderChannels(list) {
+  channelGrid.innerHTML = '';
+  list.forEach((ch, index) => {
+    const img = document.createElement('img');
+    img.src = ch.logo;
+    img.alt = ch.name;
+    img.className = 'channel-logo';
+    img.onclick = () => selectChannel(index);
+    channelGrid.appendChild(img);
+  });
+}
+
+renderChannels(channelList);
+
+// Select channel
+function selectChannel(index) {
+  currentChannelIndex = index;
+  const channel = channelList[index];
+  channelName.textContent = channel.name;
+  Array.from(channelGrid.children).forEach((el, i) => {
+    el.classList.toggle('active-channel', i === index);
+  });
+
+  if (hls) hls.destroy();
+  if (Hls.isSupported()) {
+    hls = new Hls();
+    hls.loadSource(channel.url);
+    hls.attachMedia(video);
+    loader.style.visibility = 'visible';
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      loader.style.visibility = 'hidden';
+      video.play();
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = channel.url;
+    video.addEventListener('loadedmetadata', () => video.play());
+  }
+}
+
+// Player controls
+function togglePlay() {
+  if (video.paused) {
+    video.play();
+    playBtn.textContent = '⏸';
+  } else {
+    video.pause();
+    playBtn.textContent = '▶';
+  }
+}
+
+function toggleMute() {
+  video.muted = !video.muted;
+  muteBtn.textContent = video.muted ? '🔇' : '🔊';
+}
+
+function nextChannel() {
+  selectChannel((currentChannelIndex + 1) % channelList.length);
+}
+
+function prevChannel() {
+  selectChannel((currentChannelIndex - 1 + channelList.length) % channelList.length);
+}
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    video.parentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function toggleControls() {
+  controls.classList.toggle('hidden');
+}
+
+// Search channels
+function filterChannels() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = channelList.filter(ch => ch.name.toLowerCase().includes(query));
+  renderChannels(filtered);
+}
+
+// Filter by category
+function filterByCategory(cat) {
+  Array.from(document.getElementsByClassName('category-btn')).forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === cat || (cat === 'all' && btn.textContent.toLowerCase() === 'all'));
+  });
+  const filtered = cat === 'all' ? channelList : channelList.filter(ch => ch.category === cat);
+  renderChannels(filtered);
+}
+
+// Update progress
+video.addEventListener('timeupdate', () => {
+  const percent = (video.currentTime / video.duration) * 100 || 0;
+  progressBar.style.width = percent + '%';
+  progressHandle.style.left = percent + '%';
+  const formatTime = t => t ? `${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).toString().padStart(2,'0')}` : '00:00';
+  timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+});
+
+// Seek video
+function seekVideo(e) {
+  const rect = progressContainer.getBoundingClientRect();
+  const percent = (e.clientX - rect.left) / rect.width;
+  video.currentTime = percent * video.duration;
+}
+
+// Initial select first channel
+selectChannel(0);
+</script>
+
+</body>
+</html>
