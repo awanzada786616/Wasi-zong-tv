@@ -1,1 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wasi TV Developers</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root {
+  --primary: #9333ea;
+  --primary-light: #a855f7;
+  --primary-dark: #7c3aed;
+  --secondary: #ec4899;
+  --bg-dark: #0f172a;
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --text-light: #f8fafc;
+  --text-dim: #cbd5e1;
+  --glass: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
 
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--bg-dark), #1e293b);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  color: var(--text-light);
+  overflow-x: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 900px;
+  padding: 15px 0;
+  margin-bottom: 10px;
+}
+
+h1 {
+  color: var(--text-light);
+  margin: 0;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#backBtn {
+  width: 44px;
+  height: 44px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: white;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+#backBtn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.player-box {
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 16/9;
+  background: black;
+  border-radius: 20px;
+  overflow: hidden;
+  position: sticky;
+  top: 5px;
+  margin-bottom: 15px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+#loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  visibility: hidden;
+}
+
+.loader-spin {
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.controls {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.4s;
+  flex-wrap: wrap;
+  z-index: 20;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.control-btn {
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: white;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 18px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.control-btn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.control-btn.primary {
+  background: var(--primary);
+  border: 1px solid var(--primary-light);
+}
+
+.control-btn.primary:hover {
+  background: var(--primary-light);
+  box-shadow: 0 6px 12px rgba(147, 51, 234, 0.3);
+}
+
+#channelName {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 25;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+#qualityMenu {
+  position: absolute;
+  bottom: 80px;
+  right: 10px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 8px;
+  display: none;
+  z-index: 30;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  min-width: 120px;
+}
+
+#qualityMenu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  color: white;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+#qualityMenu button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+#qualityMenu button.active-quality {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#progressContainer {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 20;
+  transition: height 0.2s;
+}
+
+#progressContainer:hover {
+  height: 8px;
+}
+
+#progressBar {
+  width: 0%;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+#progressHandle {
+  position: absolute;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s;
+}
+
+#progressHandle:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+
+#timeDisplay {
+  position: absolute;
+  bottom: 18px;
+  right: 15px;
+  color: white;
+  font-size: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  z-index: 20;
+  border: 1px solid var(--glass-border);
+}
+
+#channelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 12px;
+  padding: 10px;
+  max-width: 900px;
+  width: 100%;
+  overflow-y: auto;
+  margin-top: 0;
+}
+
+.channel-logo {
+  width: 70px;
+  height: 70px;
+  border-radius: 16px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  padding: 4px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.channel-logo:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(147, 51, 234, 0.3);
+  background: rgba(147, 51, 234, 0.2);
+}
+
+.active-channel {
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 20px var(--primary);
+  background: rgba(147, 51, 234, 0.3);
+  transform: scale(1.05);
+}
+
+/* Search bar */
+.search-container {
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 15px;
+  position: relative;
+}
+
+#searchInput {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: var(--text-light);
+  font-size: 16px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+#searchInput:focus {
+  outline: none;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2), 0 0 0 2px var(--primary);
+}
+
+#searchInput::placeholder {
+  color: var(--text-dim);
+}
+
+/* Category filter */
+.category-filter {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 15px;
+  overflow-x: auto;
+  padding: 5px 0;
+}
+
+.category-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: var(--text-light);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.category-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.category-btn.active {
+  background: var(--primary);
+  border-color: var(--primary-light);
+  box-shadow: 0 4px 8px rgba(147, 51, 234, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .header {
+    padding: 10px 15px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  .player-box {
+    border-radius: 16px;
+    margin-bottom: 10px;
+  }
+  
+  .controls {
+    bottom: 30px;
+    gap: 6px;
+  }
+  
+  .control-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+  
+  #channelGrid {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 10px;
+  }
+  
+  .channel-logo {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.3rem;
+  }
+  
+  #backBtn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .controls {
+    bottom: 20px;
+  }
+  
+  .control-btn {
+    width: 38px;
+    height: 38px;
+  }
+  
+  #channelGrid {
+    grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+    gap: 8px;
+  }
+  
+  .channel-logo {
+    width: 55px;
+    height: 55px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="search-container">
+  <input type="text" id="searchInput" placeholder="Search channels..." oninput="filterChannels()">
+</div>
+
+<div class="category-filter">
+  <button class="category-btn active" onclick="filterByCategory('all')">All</button>
+  <button class="category-btn" onclick="filterByCategory('news')">News</button>
+  <button class="category-btn" onclick="filterByCategory('entertainment')">Entertainment</button>
+  <button class="category-btn" onclick="filterByCategory('sports')">Sports</button>
+  <button class="category-btn" onclick="filterByCategory('religious')">Religious</button>
+  <button class="category-btn" onclick="filterByCategory('kids')">Kids</button>
+  <button class="category-btn" onclick="filterByCategory('international')">International</button>
+</div>
+
+<div class="player-box" id="playerBox" onclick="toggleControls()">
+  <video id="videoPlayer" class="w-full h-full" autoplay poster="https://bit.ly/Shaheen-TV-Img"></video>
+  <div id="loader"><div class="loader-spin"></div></div>
+
+  <!-- Player Controls -->
+  <div id="controls" class="controls">
+    <button onclick="prevChannel()" class="control-btn">⏮</button>
+    <button id="playBtn" onclick="togglePlay()" class="control-btn primary">▶</button>
+    <button id="muteBtn" onclick="toggleMute()" class="control-btn">🔊</button>
+    <button onclick="nextChannel()" class="control-btn">⏭</button>
+    <button onclick="toggleFullScreen()" class="control-btn">⛶</button>
+    <button onclick="toggleSizeMode()" class="control-btn">🖼</button>
+    <button onclick="toggleQualityMenu()" class="control-btn">⚙</button>
+  </div>
+
+  <div id="qualityMenu"></div>
+  <div id="progressContainer" onclick="seekVideo(event)">
+    <div id="progressBar"></div>
+    <div id="progressHandle"></div>
+  </div>
+  <div id="timeDisplay">00:00 / 00:00</div>
+  <div id="channelName">Select a channel</div>
+</div>
+
+<div id="channelGrid"></div>
+
+<script>
+const channelList = [
+  {name:"Saudi Quran", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT4atGM34rXtNQzx2wCnQQVzGSjU805qIOdFw&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/SaudiQuran-142/playlist.m3u8", category:"religious"},
+  {name:"Saudi Sunnah", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGupfsMkkP5X3iP6XZx6yi2LSzq8_6TIOC-w&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/SaudiSunnah-141/live/141M/chunks.m3u8", category:"religious"},
+  {name:"Madani TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuLdTFn4TdP5-rF7YyPXTvOKguRsWJ0q0-cEDZUJ1gKGIl85TEpTiYSx0&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/Madni-121/playlist.m3u8", category:"religious"},
+  {name:"PTV Home", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqsvRHu6ZhAQdM0FE5MRF4Goto2-mcA6K4sw&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/ptv-home-174/playlist.m3u8", category:"entertainment"},
+  {name:"Bol TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQQIKXUbh96lR2jrQ90lzfteBQuVL8TROFk0w&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/bolnent-159-4/playlist.m3u8", category:"entertainment"},
+  {name:"Bol News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTgK3r8pJhDdYfdu-8lGclYbvW6W4wB9lNqF-1MvwY05aPkBrB_1zigQHA&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/bolnews-159-3/playlist.m3u8", category:"news"},
+  {name:"Express News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTwagVGRGWczQgdzNC-RdEl1t0eF_C8_yzh-o-9WlBh7yfFR6ovB8AIKi61&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/ExpressNews-155/playlist.m3u8", category:"news"},
+  {name:"Express Ent", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTCfJKkUhCHVllOSPBVjwCFpPn9b-P_of0kjA&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/EXP-ENT-159-1/playlist.m3u8", category:"entertainment"},
+  {name:"Jalwa", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnWayKJ8devGcnrbcnfboF1RETCKoWr2aFjP-1W8iw-1p4TlYmZ6bQwnlG&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/JalwaTV-135/live/135M/chunks.m3u8", category:"entertainment"},
+  {name:"8XM", logo:"http://8xm.tv/wp-content/uploads/2019/02/512X512p.png", url:"https://vodzong.mjunoon.tv:8087/streamtest/8XM-131/playlist.m3u8", category:"entertainment"},
+  {name:"Oxygen Tv", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ5pVm-0Pp3hKucynZctFMIeh985gMe84RR3A&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/132M/playlist.m3u8", category:"entertainment"},
+  {name:"Geo Tv", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJvGC860EQrod1hNmPrj9gyzoub5Qgg2M0l_12dQS18O914xV-yjE1-zHH&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/geoent-122/playlist.m3u8", category:"entertainment"},
+  {name:"Geo News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTvmQmYYa9mh7dXePN1DEBpawvKb2Jcd0Shw&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/geonews-137/playlist.m3u8", category:"news"},
+  {name:"Urdu 1", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTpxnA2_kHg8QgWos0GjlvCvENmdUgQhhTO1hIAwqSOE4Txfibg0oCxaq4&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/Urdu1-158-4/playlist.m3u8", category:"entertainment"},
+  {name:"A Plus", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQdzutge89wiGQnXi2_-xgth7iKTQiHQS1ZzQ&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/APlus-118/playlist.m3u8", category:"entertainment"},
+  {name:"AAJ Entertainment", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTUKeKZG1vzTQk_qslUAkxCz_KwQo4bXdFL7d1OFpH6-XkZNk0&s", url:"https://vodzong.mjunoon.tv:8087/streamtest/AAJENT-125/playlist.m3u8", category:"entertainment"},
+  {name:"AAJ News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTw3XifA6zKwga4pcAvvSHEi4Jx-vMLbIBfjBijrZiG1hhVwtxJES73OqXk&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/AAJNews-124/playlist.m3u8", category:"news"},
+  {name:"Sindh TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGsxWjXyJ9Nxvf78Le-W1jkerBBuztBahqs6VO3g8QZPVJC_LKagkmBYU&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/SindhTV-136-1/live/136-1M/chunks.m3u8", category:"entertainment"},
+  {name:"Sindh News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTElWZUWbSKUaT9_4ZMQ_6rH2n7qzcRCsmrgw&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/SindhNews-136-2/playlist.m3u8", category:"news"},
+  {name:"KTN TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR1Vbtybwih6wSaFraEAU6ym_-jyUXoz9qBYA&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/KTN-149/playlist.m3u8", category:"entertainment"},
+  {name:"KTN News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqACj5a67chU59ADkTM8gApWbYjQjKyDzHEA&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/KTNNews-151/playlist.m3u8", category:"news"},
+  {name:"Kashish TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7a5ORjEqgt5veU6e0ltVmk_IZuov34IVWN4DwQELwboZIEJc&s", url:"https://vodzong.mjunoon.tv:8087/streamtest/Kashish-150/playlist.m3u8", category:"entertainment"},
+  {name:"Awaz TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGw2NFUe2PRUaUZ5zPFexMWsJdD5XdTJhcUg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/AWAZ-120/playlist.m3u8", category:"entertainment"},
+  {name:"Time News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9ItuK1wSgi8G2Cluif09aNKdbxSYa5E1pYJw66W6RDjck2-KfHIlBAAM&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/time-news-172/playlist.m3u8", category:"news"},
+  {name:"Play TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQsltTCnRhJul3X7RgioroIN-fkR6G9nh7z3g&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/playtv-154/playlist.m3u8", category:"entertainment"},
+  {name:"AbbTak News", logo:"https://upload.wikimedia.org/wikipedia/en/c/c3/Abb_Tak_news_logo.png", url:"https://vodzong.mjunoon.tv:8087/streamtest/AbbTakNews-133/live/133H/chunks.m3u8", category:"news"},
+  {name:"Samaa TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxegS2MnXuq9RiMdfxqW8rfqlyFKTr5HwMgg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/Samaa-157-3/playlist.m3u8", category:"news"},
+  {name:"Dawn News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrs-9thVXyGDeokLLg9jJeGGRtg3P7WdWMzg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/DawnNews-152/playlist.m3u8", category:"news"},
+  {name:"Hum TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSkYgs_Akm-8OaExLxX2Jk1Vm3VKV6zTJake-vDe3Nho7vfL1C2zHFuEDDN&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/Hum-TV-136-3/playlist.m3u8", category:"entertainment"},
+  {name:"Hum News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmsgdiQC-oH_neSmr9rn4Q64tmaPXjW_pCeg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/Hum-news-80/playlist.m3u8", category:"news"},
+  {name:"Dunya News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTk5mYNrIsFgaQacU64xg6TXvnHdDrhK_s1Tg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/DunyaNews-113/playlist.m3u8", category:"news"},
+  {name:"See TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZYOj6PnXQCNoA2S1vK79MpuGOP5Y3ow4IA7kwj3yeNqdgrrz9M9l_QEA&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/SeeTV-156/playlist.m3u8", category:"entertainment"},
+  {name:"Baby TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfsji6pOJevIdHmug5J2ppCxB40sBaCEqfqcnNo06Xrzr-uHNvKA6BoEk&s=10", url:"https://vodzong.mjunoon.tv:8087/streamtest/babytv-77/playlist.m3u8", category:"kids"},
+  {name:"Champion TV", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTOoWEUxqSt1T1KHUwj-3S_U_TlAZ-JtR1ujQ&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/champion-177/playlist.m3u8", category:"entertainment"},
+  {name:"Movie One", logo:"https://i1.wp.com/tvtonight.com.au/wp-content/uploads/2013-01-01_1835.jpg?w=290&ssl=1", url:"https://vodzong.mjunoon.tv:8087/streamtest/movie-one-176/playlist.m3u8", category:"entertainment"},
+  {name:"TV1", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQN4ty614iusgACZsNv19qUIaOWQfjC_svwTg&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/TV1-129/playlist.m3u8", category:"entertainment"},
+  {name:"WASEB", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS6nNDOHnQcTUrc927J8WJCKguprLBriecThA&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/WASEB-130/playlist.m3u8", category:"entertainment"},
+  {name:"Roz News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3HxB_nRvvD0KireVtBymmZD-ZScTmYwQSow&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/RozNews-139/playlist.m3u", category:"news"},
+  {name:"VSH News", logo:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZdvN4yiS31fNgC1fv48P-a7IXWi6MIe7yAQ&usqp=CAU", url:"https://vodzong.mjunoon.tv:8087/streamtest/VSHTV-122/playlist.m3u8", category:"news"},
+  {name:"Channel 5", logo:"https://pbs.twimg.com/media/EwAo8HrXMAITpUb?format=jpg&name=360x360", url:"https://vodzong.mjunoon.tv:8087/streamtest/Channel5-159-4/live/159-4M/chunks.m3u8", category:"entertainment"},
+  {name:"DW", logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Deutsche_Welle_symbol_2012.svg/1200px-Deutsche_Welle_symbol_2012.svg.pn
